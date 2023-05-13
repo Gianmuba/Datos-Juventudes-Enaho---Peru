@@ -1,0 +1,279 @@
+---
+title: "Sintaxis - Nivel Educativo Alcanzado"
+author: "Dirección de Investigación y Desarrollo (DINDES) de la Secretaría Nacional de Juventud (SENAJU). Especialistas a cargo: Gianmarco Muñoz Bazán & Manuel Vargas de la Torre"
+date: "2023-05-04"
+output:
+  html_document:
+      toc: yes
+      toc_depth: 3
+      toc_float: yes
+      collapsed: yes
+      smooth_scroll: yes
+      theme: journal
+      highlight: kate
+      df_print: paged
+      code_folding: show
+---
+
+# MODELADO DE BASE DATO
+
+## PAQUETES ESTADÍSTICOS
+```{r message=FALSE, warning=FALSE}
+library(openxlsx)
+library(rmarkdown)
+library(tidyverse)
+library(haven)
+library(foreign)
+library(survey)
+```
+
+## GENERAMOS UNA RUTA PARA GUARDAR NUESTROS DATOS
+Una ruta hacia una carpeta donde almacenaremos los excel que se elaborarán posteriormente, que contarán con dataset de información construida.
+```{r}
+ruta <- "C:/Users/Trabajo/Desktop/RDATA"
+```
+
+## CARGAR BASES DE DATOS Y UNION DE BASES DE DATOS
+```{r message=FALSE, warning=FALSE, rows.print=5}
+Educacion <- read_dta("C:\\Users\\Trabajo\\Desktop\\ENAHO 2021\\EDUACIÓN - 759-Modulo03\\enaho01a-2020-300.dta")
+sumaria <- read_dta("C:\\Users\\Trabajo\\Desktop\\ENAHO 2021\\SUMARIA - 759-Modulo34\\sumaria-2020.dta")
+enaho <- left_join(Educacion, sumaria, by=c("conglome", "vivienda", "hogar"))
+enaho
+```
+
+## FILTRAMOS LA BASE DE DATOS
+```{r}
+enaho <- filter(enaho, p208a>= 15 & codinfor!="00" & p204 == 1 
+                & p203!=8 & p203!=9)
+```
+
+# ELABORACION DE VARIABLES PARA DESAGREGACIONES
+## VARIABLES TRANSVERSALES
+Aquellas variables que nos sirven para realizar las desagregaciones posteriores.
+### VARIABLE SEXO
+```{r}
+enaho <- enaho %>% mutate(sexo = ifelse(p207==1,"hombre",
+                                        ifelse(p207==2,"Mujer",NA)))
+table(enaho$sexo, useNA = "alw")
+```
+
+### DEPARTAMENTOS
+Hay que convertir la variable ubigeo.x (el ".x" es producto de la unión de bases de datos) a numérico para no encontrar problemas al momento de recodificar.
+```{r}
+enaho$ubigeonum <- as.numeric(enaho$ubigeo.x)
+enaho <- enaho %>%
+  mutate(regiones2 = 
+           ifelse(ubigeonum >= 010101 & ubigeonum <= 010707, "Amazonas",
+           ifelse(ubigeonum >= 020101 & ubigeonum <= 022008, "Ancash",
+           ifelse(ubigeonum >= 030101 & ubigeonum <= 030714, "Apurimac",
+           ifelse(ubigeonum >= 040101 & ubigeonum <= 040811, "Arequipa",
+           ifelse(ubigeonum >= 050101 & ubigeonum <= 051108, "Ayacucho",
+           ifelse(ubigeonum >= 060101 & ubigeonum <= 061311, "Cajamarca",
+           ifelse(ubigeonum >= 070101 & ubigeonum <= 070107, "Prov. Const. del Callao",
+           ifelse(ubigeonum >= 080101 & ubigeonum <= 081307, "Cusco",
+           ifelse(ubigeonum >= 090101 & ubigeonum <= 090723, "Huancavelica",
+           ifelse(ubigeonum >= 100101 & ubigeonum <= 101108, "Huanuco",
+           ifelse(ubigeonum >= 110101 & ubigeonum <= 110508, "Ica",
+           ifelse(ubigeonum >= 120101 & ubigeonum <= 120909, "Junin",
+           ifelse(ubigeonum >= 130101 & ubigeonum <= 131203, "La Libertad",
+           ifelse(ubigeonum >= 140101 & ubigeonum <= 140312, "Lambayeque",
+           ifelse(ubigeonum >= 150101 & ubigeonum <= 150143, "Lima Metropolitana",
+           ifelse(ubigeonum >= 150201 & ubigeonum <= 151033, "Lima Region",
+           ifelse(ubigeonum >= 160101 & ubigeonum <= 160804, "Loreto",
+           ifelse(ubigeonum >= 170101 & ubigeonum <= 170303, "Madre de Dios",
+           ifelse(ubigeonum >= 180101 & ubigeonum <= 180303, "Moquegua",
+           ifelse(ubigeonum >= 190101 & ubigeonum <= 190308, "Pasco",
+           ifelse(ubigeonum >= 200101 & ubigeonum <= 200806, "Piura",
+           ifelse(ubigeonum >= 210101 & ubigeonum <= 211307, "Puno",
+           ifelse(ubigeonum >= 220101 & ubigeonum <= 221005, "San Martín",
+           ifelse(ubigeonum >= 230101 & ubigeonum <= 230408, "Tacna",
+           ifelse(ubigeonum >= 240101 & ubigeonum <= 240304, "Tumbes",
+           ifelse(ubigeonum >= 250101 & ubigeonum <= 250401, "Ucayali",NA)))))))))))))))))))))))))))
+table(enaho$regiones2, useNA = "alw")
+```
+
+### REGIONES NATURALES
+```{r}
+enaho <- enaho %>%
+  mutate(regnat = ifelse(dominio.x>=1 & dominio.x<=3 | dominio.x==8,"Costa",
+                         ifelse(dominio.x>=4 & dominio.x<=6,"Sierra",
+                                ifelse(dominio.x==7,"Selva",NA))))
+table(enaho$regnat, useNA = "alw")
+```
+
+### ÁREA DE DOMICILIO
+```{r}
+enaho <- enaho %>%
+  mutate(area = ifelse((dominio.x==8 |
+                          (dominio.x>=1 & dominio.x<=7) &
+                          (estrato.x>=1 & estrato.x<=5)), "Urbano",
+                       ifelse(((dominio.x>=1 & dominio.x<=7) &
+                                 (estrato.x>=6 & estrato.x<=8)), "Rural", NA)))
+table(enaho$area, useNA = "alw")
+```
+
+### CONDICIÓN DE POBREZA
+```{r}
+enaho <- enaho %>%
+  mutate(pobreza3 = ifelse(pobreza==1, "Pobre extremo",
+                           ifelse(pobreza==2, "Pobre no extremo",
+                                  ifelse(pobreza==3, "No pobre", NA
+                                  ))))
+table(enaho$pobreza3, useNA = "alw")
+```
+
+## VARIABLES INDICADOR 
+### VARIABLE NIVEL EDUCATIVO ALCANZADO
+```{r}
+enaho <- enaho %>%
+  mutate(alcanzado = ifelse(p301a>=1 & p301a<=2, "Sin nivel", 
+                           ifelse(p301a>=3 & p301a<=4 | p301a==12, "Primaria", 
+                                  ifelse(p301a>=5 & p301a<=6, "Secundaria", 
+                                         ifelse(p301a>=7 & p301a<=8,"Superior no universitaria", 
+                                                ifelse(p301a>=9 & p301a<=11, "Superior universitaria",NA))))))
+
+enaho$alcanzado <- as.factor(enaho$alcanzado)
+table(enaho$alcanzado, useNA="alw")
+```
+
+### VARIABLE JOVENES (25 A 29 AÑOS)
+```{r}
+enaho <- enaho %>% mutate(rangoa = ifelse(p208a>=25 & p208a<=29,"25 a 29 años",NA))
+table(enaho$rangoa, useNA = "alw")
+```
+
+# PONDERACIÓN DE DATOS, DATASETS Y TRASLADO A EXCEL
+
+## DISEÑO MUESTRAL
+```{r}
+encuesta = svydesign(data=enaho, id=~conglome, strata=~estrato.x,
+                     weights=~factora07)
+```
+
+## DESAGREGACIÓN NACIONAL
+```{r}
+tabla0 <- svyby(~alcanzado, ~rangoa, encuesta, svymean, deff=F,na.rm=T) #PROMEDIO
+ic0 <-as.table(confint(tabla0)) #INTERVALOS DE CONFIANZA
+cv0 <-cv(tabla0) #COEFICIENTE DE VARIACIÓN
+
+workbook0 <- createWorkbook()
+addWorksheet(workbook0, sheetName = "Tabla 0")
+addWorksheet(workbook0, sheetName = "IC 0")
+addWorksheet(workbook0, sheetName = "CV 0")
+
+writeData(workbook0, sheet = "Tabla 0", x = tabla0, colNames = TRUE)
+writeData(workbook0, sheet = "IC 0", x = ic0, colNames = TRUE)
+writeData(workbook0, sheet = "CV 0", x = cv0, colNames = TRUE)
+
+saveWorkbook(workbook0, "datos0.xlsx")
+
+tabla0
+cv0
+```
+
+## DESAGREGACIÓN SEGÚN SEXO
+```{r}
+tabla1 <- svyby(~alcanzado, ~rangoa+sexo, encuesta, svymean, deff=F,na.rm=T) #PROMEDIO
+ic1 <- as.table(confint(tabla1)) #INTERVALOS DE CONFIANZA
+cv1 <-cv(tabla1) #COEFICIENTE DE VARIACIÓN
+
+workbook1 <- createWorkbook()
+addWorksheet(workbook1, sheetName = "Tabla 1")
+addWorksheet(workbook1, sheetName = "IC 1")
+addWorksheet(workbook1, sheetName = "CV 1")
+
+writeData(workbook1, sheet = "Tabla 1", x = tabla1, colNames = TRUE)
+writeData(workbook1, sheet = "IC 1", x = ic1, colNames = TRUE)
+writeData(workbook1, sheet = "CV 1", x = cv1, colNames = TRUE)
+
+saveWorkbook(workbook1, "datos1.xlsx")
+
+tabla1
+cv1
+```
+
+## DESAGREGACIÓN SEGÚN ÁREA DE DOMICILIO (RURAL / URBANA)
+```{r}
+tabla2 <- svyby(~alcanzado, ~rangoa+area, encuesta, svymean, deff=F,na.rm=T) #PROMEDIO
+ic2 <-as.table(confint(tabla2)) #INTERVALOS DE CONFIANZA
+cv2 <-cv(tabla2) #COEFICIENTE DE VARIACIÓN
+
+workbook2 <- createWorkbook()
+addWorksheet(workbook2, sheetName = "Tabla 2")
+addWorksheet(workbook2, sheetName = "IC 2")
+addWorksheet(workbook2, sheetName = "CV 2")
+
+writeData(workbook2, sheet = "Tabla 2", x = tabla2, colNames = TRUE)
+writeData(workbook2, sheet = "IC 2", x = ic2, colNames = TRUE)
+writeData(workbook2, sheet = "CV 2", x = cv2, colNames = TRUE)
+
+saveWorkbook(workbook2, "datos2.xlsx")
+
+tabla2
+cv2
+```
+
+## DESAGREGACIÓN SEGUN REGIÓN NATURAL (COSTA, SIERRA, SELVA)
+```{r}
+tabla3 <- svyby(~alcanzado, ~rangoa+regnat, encuesta, svymean, deff=F,na.rm=T) #PROMEDIO
+ic3 <-as.table(confint(tabla3)) #INTERVALOS DE CONFIANZA
+cv3 <-cv(tabla3) #COEFICIENTE DE VARIACIÓN
+
+workbook3 <- createWorkbook()
+addWorksheet(workbook3, sheetName = "Tabla 3")
+addWorksheet(workbook3, sheetName = "IC 3")
+addWorksheet(workbook3, sheetName = "CV 3")
+
+writeData(workbook3, sheet = "Tabla 3", x = tabla3, colNames = TRUE)
+writeData(workbook3, sheet = "IC 3", x = ic3, colNames = TRUE)
+writeData(workbook3, sheet = "CV 3", x = cv3, colNames = TRUE)
+
+saveWorkbook(workbook3, "datos3.xlsx")
+
+tabla3
+cv3
+```
+
+## DESAGREGACIÓN SEGÚN DEPARTAMENTOS
+```{r}
+tabla4 <- svyby(~alcanzado, ~rangoa+regiones2, encuesta, svymean, deff=F,na.rm=T) #PROMEDIO
+ic4 <-as.table(confint(tabla4)) #INTERVALOS DE CONFIANZA
+cv4 <-cv(tabla4) #COEFICIENTE DE VARIACIÓN
+
+workbook4 <- createWorkbook()
+addWorksheet(workbook4, sheetName = "Tabla 4")
+addWorksheet(workbook4, sheetName = "IC 4")
+addWorksheet(workbook4, sheetName = "CV 4")
+
+writeData(workbook4, sheet = "Tabla 4", x = tabla4, colNames = TRUE)
+writeData(workbook4, sheet = "IC 4", x = ic4, colNames = TRUE)
+writeData(workbook4, sheet = "CV 4", x = cv4, colNames = TRUE)
+
+saveWorkbook(workbook4, "datos4.xlsx")
+
+tabla4
+cv4
+```
+
+## DESAGREGACIÓN SEGUN CONDICIÓN DE POBREZA
+```{r}
+tabla5 <- svyby(~alcanzado, ~rangoa+pobreza3, encuesta, svymean, deff=F,na.rm=T) #PROMEDIO
+ic5 <-as.table(confint(tabla5)) #INTERVALOS DE CONFIANZA
+cv5 <-cv(tabla5) #COEFICIENTE DE VARIACIÓN
+
+workbook5 <- createWorkbook()
+addWorksheet(workbook5, sheetName = "Tabla 5")
+addWorksheet(workbook5, sheetName = "IC 5")
+addWorksheet(workbook5, sheetName = "CV 5")
+
+writeData(workbook5, sheet = "Tabla 5", x = tabla5, colNames = TRUE)
+writeData(workbook5, sheet = "IC 5", x = ic5, colNames = TRUE)
+writeData(workbook5, sheet = "CV 5", x = cv5, colNames = TRUE)
+
+saveWorkbook(workbook5, "datos5.xlsx")
+
+tabla5
+cv5
+```
+
+
