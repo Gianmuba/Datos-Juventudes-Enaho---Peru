@@ -1,6 +1,6 @@
 ---
-title: "Sintaxis - Nivel Educativo Alcanzado"
-author: "Dirección de Investigación y Desarrollo (DINDES) de la Secretaría Nacional de Juventud (SENAJU). Especialistas a cargo: Gianmarco Muñoz Bazán & Manuel Vargas de la Torre"
+title: "Sintaxis - Distribución de la población joven según Nivel Educativo Alcanzado"
+author: "Gianmarco Muñoz Bazán para la Dirección de Investigación y Desarrollo del MINEDU"
 date: "2023-05-04"
 output:
   html_document:
@@ -19,6 +19,11 @@ output:
 
 ## PAQUETES ESTADÍSTICOS
 ```{r message=FALSE, warning=FALSE}
+install.packages("tidyverse")
+install.packages("rmarkdown")
+install.packages("haven")
+install.packages("foreing")
+install.packages("survey")
 library(openxlsx)
 library(rmarkdown)
 library(tidyverse)
